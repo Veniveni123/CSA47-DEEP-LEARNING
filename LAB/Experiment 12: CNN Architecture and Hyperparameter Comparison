@@ -1,0 +1,83 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyP6DNeAzTL4MdPEaZlp7KQ5",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Veniveni123/CSA47-DEEP-LEARNING/blob/main/LAB/Experiment%2012%3A%20CNN%20Architecture%20and%20Hyperparameter%20Comparison\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "yrz_Z2gCwTE2"
+      },
+      "outputs": [],
+      "source": [
+        "import time\n",
+        "import numpy as np\n",
+        "import pandas as pd\n",
+        "import tensorflow as tf\n",
+        "from tensorflow import keras\n",
+        "\n",
+        "np.random.seed(42)\n",
+        "tf.random.set_seed(42)\n",
+        "\n",
+        "(X_tr, y_tr), (X_te, y_te) = keras.datasets.cifar10.load_data()\n",
+        "X_tr, y_tr = X_tr[:2500].astype('float32') / 255.0, y_tr[:2500].ravel()\n",
+        "X_te, y_te = X_te[:500].astype('float32') / 255.0, y_te[:500].ravel()\n",
+        "\n",
+        "def eval_cnn(name, n_conv=2, k_size=3, filters=16, pool='max', use_bn=False, lr=0.001, batch_size=64):\n",
+        "    model = keras.Sequential([keras.layers.Input(shape=(32, 32, 3))])\n",
+        "    for i in range(n_conv):\n",
+        "        model.add(keras.layers.Conv2D(filters * (2**min(i, 2)), (k_size, k_size), padding='same', activation='relu'))\n",
+        "        if use_bn:\n",
+        "            model.add(keras.layers.BatchNormalization())\n",
+        "        if i < 3:\n",
+        "            model.add(keras.layers.MaxPooling2D((2, 2)) if pool == 'max' else keras.layers.AveragePooling2D((2, 2)))\n",
+        "    model.add(keras.layers.Flatten())\n",
+        "    model.add(keras.layers.Dense(64, activation='relu'))\n",
+        "    model.add(keras.layers.Dense(10, activation='softmax'))\n",
+        "\n",
+        "    model.compile(optimizer=keras.optimizers.Adam(lr), loss='sparse_categorical_crossentropy', metrics=['accuracy'])\n",
+        "    t0 = time.time()\n",
+        "    model.fit(X_tr, y_tr, epochs=6, batch_size=batch_size, verbose=0)\n",
+        "    elapsed = round(time.time() - t0, 2)\n",
+        "    acc = round(model.evaluate(X_te, y_te, verbose=0)[1], 4)\n",
+        "    return {'Configuration': name, 'Test Acc': acc, 'Parameters': model.count_params(), 'Train Time (s)': elapsed}\n",
+        "\n",
+        "configs = [\n",
+        "    eval_cnn(\"2 Conv Layers (Base)\", n_conv=2),\n",
+        "    eval_cnn(\"3 Conv Layers\", n_conv=3),\n",
+        "    eval_cnn(\"4 Conv Layers\", n_conv=4),\n",
+        "    eval_cnn(\"5x5 Kernel, 32 Filters\", n_conv=2, k_size=5, filters=32),\n",
+        "    eval_cnn(\"Average Pooling\", n_conv=2, pool='avg'),\n",
+        "    eval_cnn(\"Max Pool + BatchNorm\", n_conv=2, pool='max', use_bn=True),\n",
+        "    eval_cnn(\"LR=0.005, Batch=32\", n_conv=2, lr=0.005, batch_size=32),\n",
+        "]\n",
+        "\n",
+        "print(pd.DataFrame(configs).to_string(index=False))"
+      ]
+    }
+  ]
+}
